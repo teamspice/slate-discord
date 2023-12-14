@@ -35,7 +35,7 @@ function handleApiResponse(entries) {
     entries.forEach(entry => {
         const message = createMessage(entry);
         if ((combinedMessage + message + '\n\n').length > 2000) {
-            client.channels.cache.get('1167177427559141497').send(combinedMessage);
+            client.channels.cache.get('1163873322275184746').send(combinedMessage);
             combinedMessage = message + '\n\n'; // Start a new message with the current entry
         } else {
             combinedMessage += message + '\n\n'; // Append each message with double newline
@@ -43,7 +43,7 @@ function handleApiResponse(entries) {
     });
 
     if (combinedMessage.length > 0) {
-        client.channels.cache.get('1167177427559141497').send(combinedMessage);
+        client.channels.cache.get('1163873322275184746').send(combinedMessage);
     }
 
     lastTimestamp = entries[entries.length - 1].timestamp;
@@ -119,7 +119,7 @@ const sendMessagesAfterScheduledTime = () => {
             now.getMinutes() === adjustedScheduledTime.getMinutes()
         ) {
             const message = getRandomMessage(scheduledTime);
-            const channel = client.channels.cache.get('1167177427559141497');
+            const channel = client.channels.cache.get('1163873322275184746');
             if (channel) {
                 channel.send(message);
             }
