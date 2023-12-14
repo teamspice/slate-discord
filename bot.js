@@ -1,3 +1,4 @@
+require('dotenv').config();
 const { Client, GatewayIntentBits } = require('discord.js');
 const client = new Client({
     intents: [
@@ -7,7 +8,6 @@ const client = new Client({
 });
 const axios = require('axios');
 const walletApiUrl = process.env.WALLET_API_URL;
-require('dotenv').config();
 
 
 // HANDLES SENDING DISCORD MESSAGES FOR ORGANIC EXECUTIONS
@@ -19,24 +19,33 @@ let lastTimestamp = Date.now();
 function createMessage(entry) {
     const numAction = entry.actions;
     const numCondition = entry.conditions || 0; // Default to 0 if undefined
-    const timestampInMs = parseInt(entry.timestamp) * 1000;
-    const time = new Date(timestampInMs).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+    const eventTime = new Date(parseInt(entry.timestamp));
+    const time = eventTime.toLocaleTimeString('en-US', { timeZone: 'America/New_York', hour: '2-digit', minute: '2-digit', second: '2-digit' });
   
-    return `A Slater just executed a ${numAction} action${numCondition > 0 ? `, ${numCondition} condition` : ''} on-chain operation via [slate.ceo](https://slate.ceo/?utm_source=discord&utm_medium=general&utm_campaign=bot) at ${time}!`;
+    return `A Slater just executed a ${numAction} action${numCondition > 0 ? `, ${numCondition} condition` : ''} on-chain operation via [slate.ceo](https://slate.ceo/?utm_source=discord&utm_medium=general&utm_campaign=bot) at ${time} EST!`;
 }
 
 // Function to handle the API response
 function handleApiResponse(entries) {
     if (entries.length === 0) {
-        return; // No new entries, so just return
+        return;
     }
 
+    let combinedMessage = '';
     entries.forEach(entry => {
         const message = createMessage(entry);
-        client.channels.cache.get('1163873322275184746').send(message);
+        if ((combinedMessage + message + '\n\n').length > 2000) {
+            client.channels.cache.get('1167177427559141497').send(combinedMessage);
+            combinedMessage = message + '\n\n'; // Start a new message with the current entry
+        } else {
+            combinedMessage += message + '\n\n'; // Append each message with double newline
+        }
     });
 
-    // Update lastTimestamp for the next call
+    if (combinedMessage.length > 0) {
+        client.channels.cache.get('1167177427559141497').send(combinedMessage);
+    }
+
     lastTimestamp = entries[entries.length - 1].timestamp;
 }
 
@@ -89,14 +98,14 @@ const refreshSchedule = () => {
 const getRandomMessage = (scheduledTime) => {
     const numAction = Math.floor(Math.random() * 4) + 1;
     const numCondition = Math.floor(Math.random() * 3);
-    const time = scheduledTime.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+    const time = scheduledTime.toLocaleTimeString('en-US', { timeZone: 'America/New_York', hour: '2-digit', minute: '2-digit', second: '2-digit' });
 
     let conditionText = "";
     if (numCondition > 0) {
         conditionText = `, ${numCondition} condition`;
     }
     
-    return `A Slater just executed a ${numAction} action${conditionText} on-chain operation via [slate.ceo](https://slate.ceo/?utm_source=discord&utm_medium=general&utm_campaign=bot) at ${time}!`;
+    return `A Slater just executed a ${numAction} action${conditionText} on-chain operation via [slate.ceo](https://slate.ceo/?utm_source=discord&utm_medium=general&utm_campaign=bot) at ${time} EST!`;
 };
 
 // Send message if current time matches any time in the adjustedschedule (adjusted for random minutes)
@@ -110,7 +119,7 @@ const sendMessagesAfterScheduledTime = () => {
             now.getMinutes() === adjustedScheduledTime.getMinutes()
         ) {
             const message = getRandomMessage(scheduledTime);
-            const channel = client.channels.cache.get('1163873322275184746');
+            const channel = client.channels.cache.get('1167177427559141497');
             if (channel) {
                 channel.send(message);
             }
