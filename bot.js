@@ -5,7 +5,53 @@ const client = new Client({
         GatewayIntentBits.GuildMessages
     ]
 });
+const axios = require('axios');
+const walletApiUrl = process.env.WALLET_API_URL;
 require('dotenv').config();
+
+
+// HANDLES SENDING DISCORD MESSAGES FOR ORGANIC EXECUTIONS
+
+// Initialize lastTimestamp to the current time
+let lastTimestamp = Date.now();
+
+// Function to create a message from an entry object
+function createMessage(entry) {
+    const numAction = entry.actions;
+    const numCondition = entry.conditions || 0; // Default to 0 if undefined
+    const timestampInMs = parseInt(entry.timestamp) * 1000;
+    const time = new Date(timestampInMs).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+  
+    return `A Slater just executed a ${numAction} action${numCondition > 0 ? `, ${numCondition} condition` : ''} on-chain operation via [slate.ceo](https://slate.ceo/?utm_source=discord&utm_medium=general&utm_campaign=bot) at ${time}!`;
+}
+
+// Function to handle the API response
+function handleApiResponse(entries) {
+    if (entries.length === 0) {
+        return; // No new entries, so just return
+    }
+
+    entries.forEach(entry => {
+        const message = createMessage(entry);
+        client.channels.cache.get('1163873322275184746').send(message);
+    });
+
+    // Update lastTimestamp for the next call
+    lastTimestamp = entries[entries.length - 1].timestamp;
+}
+
+// Function to fetch new entries from the API
+async function fetchNewEntries() {
+    try {
+        const res = await axios.get(`${walletApiUrl}/new-history-entries?timestamp=${lastTimestamp}`);
+        handleApiResponse(res.data);
+    } catch (error) {
+        console.error('Error fetching new entries:', error);
+    }
+}
+
+
+// HANDLES SENDING DISCORD MESSAGES FOR RANDOMLY GENERATED EXECUTIONS
 
 // Utility function to generate random time within a 2-hour block
 const getRandomTimeInBlock = (blockStartHour) => {
@@ -14,15 +60,17 @@ const getRandomTimeInBlock = (blockStartHour) => {
     return date;
 };
 
-// Generate a schedule for the day
+// Generate a schedule for the day & a random number of minutes between 1 and 5 for each time to further induce randomness
 const generateDailySchedule = () => {
     const schedule = [];
-    for (let i = 0; i < 12; i++) { // Generate 12 times
-        const startTime = i * 2; // Calculate the start hour of the block
-        const endTime = startTime + 2; // Calculate the end hour of the block
+    for (let i = 0; i < 12; i++) {
+        const startTime = i * 2;
         const randomOffset = Math.floor(Math.random() * 2); // Generate either 0 or 1
         const selectedHour = startTime + randomOffset;
-        schedule.push(getRandomTimeInBlock(selectedHour, selectedHour + 2));
+        const scheduledTime = getRandomTimeInBlock(selectedHour);
+        const randomMinutes = Math.floor(Math.random() * 5) + 1; // Random minutes between 1 and 5
+
+        schedule.push({ scheduledTime, randomMinutes });
     }
     return schedule;
 };
@@ -39,32 +87,27 @@ const refreshSchedule = () => {
 
 // Generate a random message
 const getRandomMessage = (scheduledTime) => {
-    const ids = ['0s8WGX', '27joIB', '3eJSzE', '4ocrwb', '5rW3Lz', '6SjtEP', '7Hi0qq', '7x2x3o', 'Aq9L5W', 'CaucPx', 'FI7Ds4', 'FMClpd', 'NY8dlF', 'OY4swd', 'OzsWiC', 'QYrNYF', 'Rkmwm1', 'TVHsSv', 'V7MLWD', 'XHZaaz', 'XbH2HT', 'Z6dJuT', 'ZjwVSr', 'aF0Ntc', 'cpCIpY', 'ct9wiF', 'cuQdk2', 'd7Lwxl', 'dD4qIU', 'g2k4HC', 'hQewWj', 'hyKP1i', 'kihGPj', 'lqkRcV', 'mCvVF4', 'mKYorb', 'o1jQcP', 'ohxZs1', 'pYBOqj', 'r3bY1Q', 's7NWKy', 'sB86kz', 'sv7LkA', 'uDeTQ0', 'uKLVAK', 'xBW3kA', 'ybq6YZ', 'yn6qM5', 'z6OOJl', 'ziCAM5'];
-    const id = ids[Math.floor(Math.random() * ids.length)];
     const numAction = Math.floor(Math.random() * 4) + 1;
     const numCondition = Math.floor(Math.random() * 3);
-    const size = (Math.random() * 3).toFixed(2);
     const time = scheduledTime.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
 
     let conditionText = "";
     if (numCondition > 0) {
         conditionText = `, ${numCondition} condition`;
     }
-
-    return `Slater ${id} just executed a ${numAction} action${conditionText} on-chain operation [${size} ETH] on [slate.ceo](https://slate.ceo/?utm_source=discord&utm_medium=general&utm_campaign=bot) at ${time}!`;
+    
+    return `A Slater just executed a ${numAction} action${conditionText} on-chain operation via [slate.ceo](https://slate.ceo/?utm_source=discord&utm_medium=general&utm_campaign=bot) at ${time}!`;
 };
 
-// Send message if current time matches any time in the schedule
+// Send message if current time matches any time in the adjustedschedule (adjusted for random minutes)
 const sendMessagesAfterScheduledTime = () => {
     const now = new Date();
-    dailySchedule.forEach((scheduledTime) => {
-        // Calculate the time 1 minute after the scheduled time
-        const scheduledTimePlusOneMinute = new Date(scheduledTime.getTime() + 60000);
+    dailySchedule.forEach(({ scheduledTime, randomMinutes }) => {
+        const adjustedScheduledTime = new Date(scheduledTime.getTime() + randomMinutes * 60000);
 
-        // Check if the current time matches the calculated time
         if (
-            now.getHours() === scheduledTimePlusOneMinute.getHours() &&
-            now.getMinutes() === scheduledTimePlusOneMinute.getMinutes()
+            now.getHours() === adjustedScheduledTime.getHours() &&
+            now.getMinutes() === adjustedScheduledTime.getMinutes()
         ) {
             const message = getRandomMessage(scheduledTime);
             const channel = client.channels.cache.get('1163873322275184746');
@@ -79,6 +122,7 @@ client.once('ready', () => {
     console.log(`Logged in as ${client.user.tag}!`);
     setInterval(sendMessagesAfterScheduledTime, 60000); // Check every minute
     setInterval(refreshSchedule, 60000); // Check every minute for refreshing the schedule
+    setInterval(fetchNewEntries, 300000); // Check every 5 minutes for new entries
 });
 
 client.login(process.env.BOT_TOKEN);
@@ -89,7 +133,10 @@ client.login(process.env.BOT_TOKEN);
 // const checkAndPrintMessages = () => {
 //     const now = new Date();
 //     dailySchedule.forEach((scheduledTime) => {
-//         if (now.getHours() === scheduledTime.getHours() && now.getMinutes() === scheduledTime.getMinutes()) {
+//         const randomMinutes = Math.floor(Math.random() * 5) + 1; // Generate a random whole number of minutes between 1 and 5
+//         const adjustedScheduledTime = new Date(scheduledTime.getTime() + randomMinutes * 60000);
+
+//         if (now.getHours() === adjustedScheduledTime.getHours() && now.getMinutes() === adjustedScheduledTime.getMinutes()) {
 //             const message = getRandomMessage(scheduledTime);
 //             console.log(message); // Print the message to the console
 //         }
@@ -99,25 +146,19 @@ client.login(process.env.BOT_TOKEN);
 // // Test function to display the generated schedule and messages
 // const testBotScript = () => {
 //     console.log('Generated Daily Schedule:');
-//     dailySchedule.forEach(time => console.log(time.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit' })));
+//     dailySchedule.forEach(({ scheduledTime }) => 
+//         console.log(scheduledTime.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit' }))
+//     );
 
-//     // Simulate each minute of the day
 //     for (let hour = 0; hour < 24; hour++) {
 //         for (let minute = 0; minute < 60; minute++) {
-//             // Create a date object for the current simulated time
 //             const now = new Date();
 //             now.setHours(hour, minute, 0);
 
-//             // Check against each scheduled time
-//             dailySchedule.forEach((scheduledTime) => {
-//                 // Calculate the time 1 minute after the scheduled time
-//                 const scheduledTimePlusOneMinute = new Date(scheduledTime.getTime() + 60000);
+//             dailySchedule.forEach(({ scheduledTime, randomMinutes }) => {
+//                 const adjustedScheduledTime = new Date(scheduledTime.getTime() + randomMinutes * 60000);
 
-//                 // Check if the current simulated time matches the calculated time
-//                 if (
-//                     now.getHours() === scheduledTimePlusOneMinute.getHours() &&
-//                     now.getMinutes() === scheduledTimePlusOneMinute.getMinutes()
-//                 ) {
+//                 if (now.getHours() === adjustedScheduledTime.getHours() && now.getMinutes() === adjustedScheduledTime.getMinutes()) {
 //                     const message = getRandomMessage(scheduledTime);
 //                     console.log(`[${now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}] ${message}`);
 //                 }
