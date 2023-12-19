@@ -73,15 +73,15 @@ const getRandomTimeInBlock = (blockStartHour) => {
 const generateDailySchedule = () => {
     const schedule = [];
     for (let i = 0; i < 12; i++) {
-        const startTime = i * 2;
-        const randomOffset = Math.floor(Math.random() * 2); // Generate either 0 or 1
-        const selectedHour = startTime + randomOffset;
-        const scheduledTime = getRandomTimeInBlock(selectedHour);
+        const randomHour = Math.floor(Math.random() * 24); // Random hour between 0 and 23
+        const randomMinute = Math.floor(Math.random() * 60); // Random minute between 0 and 59
+        const scheduledTime = new Date();
+        scheduledTime.setHours(randomHour, randomMinute, 0, 0);
         const randomMinutes = Math.floor(Math.random() * 5) + 1; // Random minutes between 1 and 5
 
         schedule.push({ scheduledTime, randomMinutes });
     }
-    return schedule;
+    return schedule.sort((a, b) => a.scheduledTime - b.scheduledTime); // Sort the schedule by time
 };
 
 let dailySchedule = generateDailySchedule();
