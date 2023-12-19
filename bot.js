@@ -69,14 +69,15 @@ const getRandomTimeInBlock = (blockStartHour) => {
     return date;
 };
 
-// Generate a schedule for the day & a random number of minutes between 1 and 5 for each time to further induce randomness
+// Generate a schedule of random executions for the day
 const generateDailySchedule = () => {
     const schedule = [];
     for (let i = 0; i < 12; i++) {
         const randomHour = Math.floor(Math.random() * 24); // Random hour between 0 and 23
         const randomMinute = Math.floor(Math.random() * 60); // Random minute between 0 and 59
+        const randomSecond = Math.floor(Math.random() * 60); // Random second between 0 and 59
         const scheduledTime = new Date();
-        scheduledTime.setHours(randomHour, randomMinute, 0, 0);
+        scheduledTime.setHours(randomHour, randomMinute, randomSecond, 0);
         const randomMinutes = Math.floor(Math.random() * 5) + 1; // Random minutes between 1 and 5
 
         schedule.push({ scheduledTime, randomMinutes });
@@ -97,13 +98,17 @@ const refreshSchedule = () => {
 // Generate a random message
 const getRandomMessage = (scheduledTime) => {
     const numAction = Math.floor(Math.random() * 4) + 1;
-    const numCondition = Math.floor(Math.random() * 3);
-    const time = scheduledTime.toLocaleTimeString('en-US', { timeZone: 'America/New_York', hour: '2-digit', minute: '2-digit', second: '2-digit' });
-
-    let conditionText = "";
-    if (numCondition > 0) {
-        conditionText = `, ${numCondition} condition`;
+    const rand = Math.random();
+    let numCondition;
+    if (rand < 0.5) {        // 50% chance for 0
+        numCondition = 0;
+    } else if (rand < 0.75) { // 25% chance for 1
+        numCondition = 1;
+    } else {                 // Remaining 25% chance for 2
+        numCondition = 2;
     }
+    const time = scheduledTime.toLocaleTimeString('en-US', { timeZone: 'America/New_York', hour: '2-digit', minute: '2-digit', second: '2-digit' });
+    let conditionText = numCondition > 0 ? `, ${numCondition} condition` : "";
     
     return `A Slater just executed a ${numAction} action${conditionText} on-chain operation via [slate.ceo](https://slate.ceo/?utm_source=discord&utm_medium=general&utm_campaign=bot) at ${time} EST!`;
 };
